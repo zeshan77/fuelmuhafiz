@@ -24,10 +24,19 @@ return [
      *
      * Only relevant if you're using the domain or subdomain identification middleware.
      */
-    'central_domains' => [
-        '127.0.0.1',
-        'localhost',
-    ],
+    /**
+     * Domains that serve the central application; every other host is treated as
+     * a tenant domain. Set TENANCY_CENTRAL_DOMAINS to a comma-separated list when
+     * serving the app on another host (e.g. Herd/Valet .test domains). The APP_URL
+     * host is always included so the central app stays reachable.
+     */
+    'central_domains' => array_values(array_unique(array_filter(array_map(
+        trim(...),
+        array_merge(
+            explode(',', (string) env('TENANCY_CENTRAL_DOMAINS', '127.0.0.1,localhost')),
+            [(string) parse_url((string) env('APP_URL', ''), PHP_URL_HOST)],
+        ),
+    )))),
 
     /**
      * Tenancy bootstrappers are executed when tenancy is initialized.
