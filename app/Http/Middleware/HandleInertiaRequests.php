@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Models\Tenant;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -43,7 +44,22 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'tenantCount' => $this->tenantCount($request),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
+    }
+
+    /**
+     * Badge count for the platform console's "Tenants" nav item. Only
+     * resolved in the central context — the `tenants` table lives in the
+     * central database and isn't reachable once tenancy is initialized.
+     */
+    protected function tenantCount(Request $request): ?int
+    {
+        if (tenancy()->initialized || $request->user() === null) {
+            return null;
+        }
+
+        return Tenant::query()->count();
     }
 }

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\TenantStatus;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
@@ -62,6 +65,43 @@ class Tenant extends BaseTenant implements TenantWithDatabase
             'is_active',
             'trial_ends_at',
         ];
+    }
+
+    /**
+     * The tenant's lifecycle status, derived from `is_active` and
+     * `trial_ends_at` rather than stored as its own column.
+     *
+     * Deliberately a plain method, not an Eloquent accessor: this model uses
+     * the VirtualColumn trait, which serialises unknown attributes into the
+     * `data` JSON column.
+     */
+    public function currentStatus(): TenantStatus
+    {
+        return match (true) {
+            ! $this->is_active => TenantStatus::Suspended,
+            $this->trial_ends_at?->isFuture() ?? false => TenantStatus::Trial,
+            default => TenantStatus::Active,
+        };
+    }
+
+    /**
+     * Constrain a query to tenants with the given derived status.
+     *
+     * @param  Builder<Tenant>  $query
+     */
+    #[Scope]
+    protected function status(Builder $query, TenantStatus $status): void
+    {
+        match ($status) {
+            TenantStatus::Suspended => $query->where('is_active', false),
+            TenantStatus::Trial => $query->where('is_active', true)
+                ->whereNotNull('trial_ends_at')
+                ->where('trial_ends_at', '>', Carbon::now()),
+            TenantStatus::Active => $query->where('is_active', true)
+                ->where(fn (Builder $query) => $query
+                    ->whereNull('trial_ends_at')
+                    ->orWhere('trial_ends_at', '<=', Carbon::now())),
+        };
     }
 
     /**

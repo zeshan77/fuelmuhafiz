@@ -8,6 +8,8 @@ use App\Models\Domain;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class TenantManagementTest extends TestCase
@@ -176,6 +178,109 @@ class TenantManagementTest extends TestCase
         $response->assertRedirect(route('admin.tenants.index'));
         $this->assertDatabaseMissing('tenants', ['id' => 'delete-test']);
         $this->assertDatabaseMissing('domains', ['tenant_id' => 'delete-test']);
+    }
+
+    public function test_tenants_can_be_searched_by_name_and_by_domain(): void
+    {
+        $admin = User::factory()->create();
+
+        $shaheen = $this->makeTenantWithoutProvisioning('shaheen', 'Shaheen Fuels');
+        $shaheen->createDomain('shaheen.localhost');
+
+        $indus = $this->makeTenantWithoutProvisioning('indus', 'Indus Petroleum');
+        $indus->createDomain('indus-pk.localhost');
+
+        $byName = $this->actingAs($admin)->get(route('admin.tenants.index', ['search' => 'Shaheen']));
+        $byName->assertOk();
+        $byName->assertInertia(fn (Assert $page) => $page
+            ->has('tenants.data', 1)
+            ->where('tenants.data.0.name', 'Shaheen Fuels'));
+
+        $byDomain = $this->actingAs($admin)->get(route('admin.tenants.index', ['search' => 'indus-pk']));
+        $byDomain->assertInertia(fn (Assert $page) => $page
+            ->has('tenants.data', 1)
+            ->where('tenants.data.0.name', 'Indus Petroleum'));
+
+        $shaheen->delete();
+        $indus->delete();
+    }
+
+    public function test_tenants_can_be_filtered_by_derived_status(): void
+    {
+        $admin = User::factory()->create();
+
+        $active = $this->makeTenantWithoutProvisioning('status-active', 'Active Tenant');
+        $trial = $this->makeTenantWithoutProvisioning('status-trial', 'Trial Tenant');
+        $trial->update(['trial_ends_at' => Carbon::now()->addWeek()]);
+        $suspended = $this->makeTenantWithoutProvisioning('status-suspended', 'Suspended Tenant');
+        $suspended->update(['is_active' => false]);
+
+        foreach ([
+            'active' => 'Active Tenant',
+            'trial' => 'Trial Tenant',
+            'suspended' => 'Suspended Tenant',
+        ] as $status => $expectedName) {
+            $response = $this->actingAs($admin)->get(route('admin.tenants.index', ['status' => $status]));
+
+            $response->assertInertia(fn (Assert $page) => $page
+                ->has('tenants.data', 1)
+                ->where('tenants.data.0.name', $expectedName)
+                ->where('tenants.data.0.status', $status));
+        }
+
+        $active->delete();
+        $trial->delete();
+        $suspended->delete();
+    }
+
+    public function test_the_stat_cards_report_real_counts(): void
+    {
+        $admin = User::factory()->create();
+
+        $active = $this->makeTenantWithoutProvisioning('stats-active', 'Active Tenant');
+        $active->createDomain('stats-active.localhost');
+        $suspended = $this->makeTenantWithoutProvisioning('stats-suspended', 'Suspended Tenant');
+        $suspended->update(['is_active' => false]);
+
+        $response = $this->actingAs($admin)->get(route('admin.tenants.index'));
+
+        // Stats are a deferred prop, so they arrive on a follow-up request.
+        $response->assertInertia(fn (Assert $page) => $page
+            ->missing('stats')
+            ->loadDeferredProps(fn (Assert $reload) => $reload
+                ->where('stats.total', 2)
+                ->where('stats.active', 1)
+                ->where('stats.suspended', 1)
+                ->where('stats.trial', 0)
+                ->where('stats.domains', 1)
+                ->where('stats.newThisMonth', 2)));
+
+        $active->delete();
+        $suspended->delete();
+    }
+
+    public function test_tenants_can_be_exported_as_csv_honouring_filters(): void
+    {
+        $admin = User::factory()->create();
+
+        $active = $this->makeTenantWithoutProvisioning('export-active', 'Exported Tenant');
+        $active->createDomain('exported.localhost');
+        $suspended = $this->makeTenantWithoutProvisioning('export-suspended', 'Hidden Tenant');
+        $suspended->update(['is_active' => false]);
+
+        $response = $this->actingAs($admin)->get(route('admin.tenants.export', ['status' => 'active']));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'text/csv; charset=UTF-8');
+
+        $csv = $response->streamedContent();
+
+        $this->assertStringContainsString('Exported Tenant', $csv);
+        $this->assertStringContainsString('exported.localhost', $csv);
+        $this->assertStringNotContainsString('Hidden Tenant', $csv);
+
+        $active->delete();
+        $suspended->delete();
     }
 
     /**

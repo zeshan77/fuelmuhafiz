@@ -5,6 +5,8 @@ export type Domain = {
     updated_at: string;
 };
 
+export type TenantStatus = 'active' | 'trial' | 'suspended';
+
 export type Tenant = {
     id: string;
     name: string;
@@ -20,6 +22,26 @@ export type Tenant = {
     created_at: string;
     updated_at: string;
     domains?: Domain[];
+};
+
+/** The trimmed shape the tenant list endpoint returns per row. */
+export type TenantListItem = {
+    id: string;
+    name: string;
+    currency: string;
+    contact_name: string | null;
+    created_at: string | null;
+    status: TenantStatus;
+    domains: { id: string; domain: string }[];
+};
+
+export type TenantStats = {
+    total: number;
+    active: number;
+    trial: number;
+    suspended: number;
+    domains: number;
+    newThisMonth: number;
 };
 
 export type PaginationLink = {

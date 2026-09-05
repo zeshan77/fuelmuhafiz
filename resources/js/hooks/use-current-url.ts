@@ -28,12 +28,11 @@ export type UseCurrentUrlReturn = {
 
 export function useCurrentUrl(): UseCurrentUrlReturn {
     const page = usePage();
-    const currentUrlPath = new URL(
-        page.url,
+    const origin =
         typeof window !== 'undefined'
             ? window.location.origin
-            : 'http://localhost',
-    ).pathname;
+            : 'http://localhost';
+    const currentUrlPath = new URL(page.url, origin).pathname;
 
     const isCurrentUrl: IsCurrentUrlFn = (
         urlToCheck: NonNullable<InertiaLinkProps['href']>,
@@ -46,14 +45,12 @@ export function useCurrentUrl(): UseCurrentUrlReturn {
         const comparePath = (path: string): boolean =>
             startsWith ? urlToCompare.startsWith(path) : path === urlToCompare;
 
-        if (!urlString.startsWith('http')) {
-            return comparePath(urlString);
-        }
-
+        // Resolving against the current origin normalises all three forms
+        // Wayfinder can emit: a bare path, a protocol-relative URL (central
+        // routes carry a {centralDomain} wildcard, so they come out as
+        // "//host/path"), and a fully absolute URL.
         try {
-            const absoluteUrl = new URL(urlString);
-
-            return comparePath(absoluteUrl.pathname);
+            return comparePath(new URL(urlString, origin).pathname);
         } catch {
             return false;
         }

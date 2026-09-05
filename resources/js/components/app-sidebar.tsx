@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { BookOpen, Building2, FolderGit2, LayoutGrid } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
@@ -13,22 +13,9 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { index as tenantsIndex } from '@/routes/admin/tenants';
 import { dashboard } from '@/routes';
+import { index as tenantsIndex } from '@/routes/admin/tenants';
 import type { NavItem } from '@/types';
-
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-    {
-        title: 'Tenants',
-        href: tenantsIndex(),
-        icon: Building2,
-    },
-];
 
 const footerNavItems: NavItem[] = [
     {
@@ -44,12 +31,32 @@ const footerNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {
+    const { tenantCount } = usePage().props;
+
+    const mainNavItems: NavItem[] = [
+        {
+            title: 'Dashboard',
+            href: dashboard(),
+            icon: LayoutGrid,
+        },
+        {
+            title: 'Tenants',
+            href: tenantsIndex(),
+            icon: Building2,
+            badge: tenantCount,
+        },
+    ];
+
     return (
         <Sidebar collapsible="icon" variant="inset">
-            <SidebarHeader>
+            <SidebarHeader className="pb-4">
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
+                        <SidebarMenuButton
+                            size="lg"
+                            asChild
+                            className="hover:bg-transparent active:bg-transparent"
+                        >
                             <Link href={dashboard()} prefetch>
                                 <AppLogo />
                             </Link>
@@ -62,9 +69,11 @@ export function AppSidebar() {
                 <NavMain items={mainNavItems} />
             </SidebarContent>
 
-            <SidebarFooter>
+            <SidebarFooter className="gap-2">
                 <NavFooter items={footerNavItems} className="mt-auto" />
-                <NavUser />
+                <div className="border-sidebar-border/60 mx-2 border-t pt-2">
+                    <NavUser />
+                </div>
             </SidebarFooter>
         </Sidebar>
     );
