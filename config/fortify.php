@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Laravel\Fortify\Features;
+use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 
 return [
 
@@ -103,7 +104,11 @@ return [
     |
     */
 
-    'middleware' => ['web'],
+    'middleware' => [
+        'web',
+        'universal',
+        InitializeTenancyByDomain::class,
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -163,7 +168,9 @@ return [
     */
 
     'features' => [
-        Features::registration(),
+        // Public self-registration is disabled: central accounts are created only
+        // by an existing admin, and tenant accounts by a tenant admin/owner.
+        // Features::registration(),
         Features::resetPasswords(),
         Features::emailVerification(),
         Features::twoFactorAuthentication([

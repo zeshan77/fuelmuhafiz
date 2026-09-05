@@ -41,11 +41,12 @@ class AppServiceProvider extends ServiceProvider
     {
         $centralDomains = config()->array('tenancy.central_domains');
         $host = request()->getHost();
+        $appUrlHost = (string) parse_url((string) config('app.url'), PHP_URL_HOST);
 
         URL::defaults([
             'centralDomain' => in_array($host, $centralDomains, true)
                 ? $host
-                : ($centralDomains[0] ?? $host),
+                : ($appUrlHost !== '' ? $appUrlHost : ($centralDomains[0] ?? $host)),
         ]);
     }
 

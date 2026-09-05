@@ -5,8 +5,16 @@ import { initializeTheme } from '@/hooks/use-appearance';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
 import SettingsLayout from '@/layouts/settings/layout';
+import { setUrlDefaults } from '@/wayfinder';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
+// Central routes are generated behind a {centralDomain?} wildcard (see
+// bootstrap/app.php) so route() keeps working no matter which configured
+// central host is being browsed. Without this, Wayfinder falls back to
+// whichever host APP_URL resolved to when the routes were generated, and
+// every generated link would silently point at the wrong origin.
+setUrlDefaults(() => ({ centralDomain: window.location.hostname }));
 
 void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),

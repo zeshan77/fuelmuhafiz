@@ -31,7 +31,7 @@ class UuidPrimaryKeysTest extends TestCase
     {
         // withoutEvents keeps the TenantCreated listeners from provisioning a real
         // tenant database, which RefreshDatabase would not roll back.
-        $tenant = Tenant::withoutEvents(fn (): Tenant => Tenant::create(['id' => 'uuid-test-tenant']));
+        $tenant = Tenant::withoutEvents(fn (): Tenant => Tenant::create(['id' => 'uuid-test-tenant', 'name' => 'UUID Test Tenant']));
         $domain = $tenant->domains()->create(['domain' => 'uuid-test-tenant.localhost']);
 
         $this->assertInstanceOf(Domain::class, $domain);
